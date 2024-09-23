@@ -1,0 +1,155 @@
+<xml xmlns="https://developers.binary.com/blockly/">
+  <variables>
+    <variable type="" id="stake">stake</variable>
+    <variable type="" id="profit">profit</variable>
+    <variable type="" id="loss">loss</variable>
+    <variable type="" id="max_loss">max_loss</variable>
+    <variable type="" id="contract_type">contract_type</variable>
+  </variables>
+
+  <!-- Set up the market and initialization -->
+  <block type="trade_definition_market" id="init_market" x="20" y="20">
+    <field name="SYMBOL">1HZ100V</field> <!-- Synthetic Index -->
+  </block>
+
+  <!-- Set trade type (CALL by default, can be modified in the platform) -->
+  <block type="trade_definition_tradetype" id="init_contract_type" x="20" y="100">
+    <field name="TYPE">CALL</field> <!-- You can set this to CALL or PUT -->
+  </block>
+
+  <!-- Set the duration for 1 tick -->
+  <block type="trade_definition_tick" id="init_ticks" x="20" y="180">
+    <field name="TICK">1</field> <!-- Trade duration is 1 tick -->
+  </block>
+
+  <!-- Get the current balance and calculate 1% of it for the stake -->
+  <block type="balance" id="get_balance" x="20" y="260">
+    <field name="ACCOUNT">real</field>
+    <next>
+      <block type="variables_set" id="calculate_stake">
+        <field name="VAR" id="stake">stake</field>
+        <value name="VALUE">
+          <block type="math_arithmetic">
+            <field name="OP">MULTIPLY</field>
+            <value name="A">
+              <block type="balance" id="get_balance_value"></block>
+            </value>
+            <value name="B">
+              <block type="math_number">
+                <field name="NUM">0.01</field> <!-- 1% of balance as stake -->
+              </block>
+            </value>
+          </block>
+        </value>
+      </block>
+    </next>
+  </block>
+
+  <!-- Execute the trade using the calculated stake -->
+  <block type="trade" id="execute_trade" inline="false" x="20" y="340">
+    <value name="AMOUNT">
+      <block type="variables_get" id="stake_var">
+        <field name="VAR" id="stake">stake</field>
+      </block>
+    </value>
+  </block>
+
+  <!-- Handle the result after each trade -->
+  <block type="on_finish" id="on_finish" x="20" y="420">
+    <statement name="FINISH">
+      <!-- If the result is a win -->
+      <block type="controls_if" id="check_win">
+        <value name="IF0">
+          <block type="check_result">
+            <field name="CHECK_RESULT">win</field>
+          </block>
+        </value>
+        <statement name="DO0">
+          <!-- Add the profit to the total -->
+          <block type="variables_set" id="update_profit">
+            <field name="VAR" id="profit">profit</field>
+            <value name="VALUE">
+              <block type="math_arithmetic">
+                <field name="OP">ADD</field>
+                <value name="A">
+                  <block type="variables_get">
+                    <field name="VAR" id="profit">profit</field>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="payout"></block> <!-- The profit from this trade -->
+                </value>
+              </block>
+            </value>
+          </block>
+        </statement>
+        <!-- If the result is a loss -->
+        <next>
+          <block type="controls_if" id="check_loss">
+            <value name="IF0">
+              <block type="check_result">
+                <field name="CHECK_RESULT">loss</field>
+              </block>
+            </value>
+            <statement name="DO0">
+              <!-- Add the loss to the total loss -->
+              <block type="variables_set" id="update_loss">
+                <field name="VAR" id="loss">loss</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic">
+                    <field name="OP">ADD</field>
+                    <value name="A">
+                      <block type="variables_get">
+                        <field name="VAR" id="loss">loss</field>
+                      </block>
+                    </value>
+                    <value name="B">
+                      <block type="ask_price"></block> <!-- The loss from this trade -->
+                    </value>
+                  </block>
+                </value>
+              </block>
+              <!-- Check if the total loss is below the max loss -->
+              <next>
+                <block type="controls_if" id="check_max_loss">
+                  <value name="IF0">
+                    <block type="math_arithmetic">
+                      <field name="OP">LESS_THAN</field>
+                      <value name="A">
+                        <block type="variables_get">
+                          <field name="VAR" id="loss">loss</field>
+                        </block>
+                      </value>
+                      <value name="B">
+                        <block type="variables_get">
+                          <field name="VAR" id="max_loss">max_loss</field>
+                        </block>
+                      </value>
+                    </block>
+                  </value>
+                  <statement name="DO0">
+                    <!-- Continue trading if loss is within acceptable limits -->
+                    <block type="trade_again"></block>
+                  </statement>
+                </block>
+              </next>
+            </statement>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+
+  <!-- Set a maximum acceptable loss (can be customized based on risk tolerance) -->
+  <block type="variables_set" id="set_max_loss" inline="false">
+    <field name="VAR" id="max_loss">max_loss</field>
+    <value name="VALUE">
+      <block type="math_number">
+        <field name="NUM">10</field> <!-- Max loss allowed (in account currency) -->
+      </block>
+    </value>
+  </block>
+
+  <!-- End of the bot -->
+  <block type="block_end"></block>
+</xml>
